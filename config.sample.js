@@ -9,11 +9,11 @@
 
 window.PORTAL_CONFIG = {
   // Entra ID → App registrations → Inventory Portal → Overview
-  tenantId: "YOUR-TENANT-ID-HERE",
-  clientId: "YOUR-CLIENT-ID-HERE",
-
-  // Full URL to the workbook in SharePoint (must end in .xlsx)
-  workbookUrl: "https://YOURCOMPANY.sharepoint.com/sites/YOURSITE/Shared%20Documents/Inventory_Control_Workbook.xlsx",
+  tenantId:    "ebeab771-6b6f-413b-a0ce-a9e2bb16d7cc",        // Entra ID → Overview → Directory (tenant) ID
+  clientId:    "26bd9358-873c-4d1f-9a6f-b58d241ef996",        // App registration → Application (client) ID
+  
+   // Full URL to the workbook in SharePoint (must end in .xlsx)
+   workbookUrl: "https://denvercutlery.sharepoint.com/:x:/s/DenverCutlery/IQAtlep2kq08SrnO01E771HeAbCDF8B6x7vaK6WxdZZxM_0?e=e7bGPn"
 
   // Accounts (sign-in emails/UPNs) that get manager tools:
   // request lifecycle actions, item editing, request→SKU conversion.
