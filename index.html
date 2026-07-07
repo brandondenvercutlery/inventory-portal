@@ -97,6 +97,13 @@ td{padding:8px 10px;border-top:1px solid var(--line)}
 .bulkprev{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:10px}
 .bulkprev table{font-size:12px;border-radius:0}
 .ok{color:var(--grn);font-weight:700}.err{color:var(--red);font-weight:700}.wrn{color:var(--amb);font-weight:700}
+button:active{transform:scale(.97)}
+@keyframes rise{from{transform:translateY(14px);opacity:.5}to{transform:none;opacity:1}}
+.sheet{animation:rise .16s ease-out}
+.hist{border-left:3px solid var(--line);margin:2px 0 12px;padding:4px 0 4px 10px;font-size:12.5px;color:var(--mut);line-height:1.9}
+.hist b{color:var(--ink)}
+.histmore{color:var(--blue);cursor:pointer;font-weight:600;font-size:12.5px}
+#qa{width:100%;padding:10px 12px;font-size:14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;margin-bottom:10px}
 </style>
 </head>
 <body>
@@ -149,7 +156,8 @@ td{padding:8px 10px;border-top:1px solid var(--line)}
   <section id="tab-activity" style="display:none">
     <div id="pendWrap"></div>
     <div id="inbWrap"></div>
-    <h3 style="color:var(--navy);margin:6px 0 8px">Recent transactions</h3>
+    <h3 style="color:var(--navy);margin:6px 0 8px">Transaction history</h3>
+    <input id="qa" type="search" placeholder="Search history — SKU, item, type, initials, job #, PO…" autocomplete="off">
     <div id="actList"></div>
   </section>
   <section id="tab-help" style="display:none">
@@ -164,6 +172,8 @@ td{padding:8px 10px;border-top:1px solid var(--line)}
       Request lifecycle (Acknowledge → Ordered + PO # → Received → Delivered / Cancel), ✎ item editing, one-tap request→SKU conversion, and <b>⇪ Bulk add</b>: paste rows from Excel or a QuickBooks export (or pick a .csv) to add a whole day's new items at once — a template is downloadable in the dialog. Blank locations are fine; they land as needs-location items.
       <h3>Adding categories or vendors</h3>
       Categories live on the workbook's Lists sheet, vendors on the Vendors sheet — the manager adds them there in Excel; the portal picks them up on refresh.
+      <h3>History & search</h3>
+      Tap any item to see its recent transaction history right in the logging panel (expandable to the full trail). The Activity tab now has a search box covering the entire transaction log — filter by SKU, item name, type, initials, job #, or PO. Anyone can set or correct an item's shelf location via the 📍 button; the on-hand dollar value is visible to managers only.
       <h3>If a save fails</h3>
       Entries queue locally — Activity tab has Retry. Nothing is lost.
       <h3>Version</h3>
@@ -176,6 +186,7 @@ td{padding:8px 10px;border-top:1px solid var(--line)}
 <!-- TXN MODAL -->
 <div class="modal" id="mTxn"><div class="sheet">
   <h2 id="txTitle">Log movement</h2><div class="sub" id="txSub"></div>
+  <div id="txHist"></div>
   <div id="txPicker" style="display:none;margin-bottom:10px">
     <label>Item</label><input type="text" id="txSearch" placeholder="Type to find SKU…" autocomplete="off">
     <div id="txSearchRes"></div>
@@ -309,16 +320,14 @@ td{padding:8px 10px;border-top:1px solid var(--line)}
    Keep real settings in config.js so portal updates never overwrite them.
    ===================================================================== */
 const CONFIG = {
-  tenantId:    "ebeab771-6b6f-413b-a0ce-a9e2bb16d7cc",        // Entra ID → Overview → Directory (tenant) ID
-  clientId:    "26bd9358-873c-4d1f-9a6f-b58d241ef996",        // App registration → Application (client) ID
-  
-   // Full URL to the workbook in SharePoint (must end in .xlsx)
-  workbookUrl: "https://denvercutlery.sharepoint.com/:x:/s/DenverCutlery/IQAtlep2kq08SrnO01E771HeAbCDF8B6x7vaK6WxdZZxM_0?e=e7bGPn",
+  tenantId:    "YOUR-TENANT-ID-HERE",
+  clientId:    "YOUR-CLIENT-ID-HERE",
+  workbookUrl: "https://YOURCOMPANY.sharepoint.com/sites/YOURSITE/Shared%20Documents/Inventory_Control_Workbook.xlsx",
   managers:    ["bblessinger@denvercutlery.com"]
 };
 /* ===================================================================== */
 const CFG = (typeof window!=='undefined' && window.PORTAL_CONFIG) ? window.PORTAL_CONFIG : CONFIG;
-const APP_VERSION="2.2.0", EXPECTED_SCHEMA=2;
+const APP_VERSION="2.3.0", EXPECTED_SCHEMA=2;
 const SCOPES=["Files.ReadWrite.All"];
 const CAT_PREFIX={"Smallwares":"SW","Plumbing & Hardware":"PH","Custom Fabrication":"FAB","Service Parts":"SP","Refrigeration Equipment":"RE"};
 
@@ -431,7 +440,7 @@ async function loadData(){
   const m=(rqBody.address||'').match(/!\$?[A-Z]+\$?(\d+):/);reqStartRow=m?+m[1]:2;
   reqs=[];
   (rqBody.values||[]).forEach((r,i)=>{if(r[1]!==''||r[3]!==''){reqs.push({idx:i,row:reqStartRow+i,raw:r.slice(),date:r[0],by:r[1],sku:r[2],desc:r[3],qty:r[4],need:r[5],proj:r[6],prio:r[7],status:r[8]||'New',po:r[9],notes:r[10]});}});
-  setConn('Live · '+(account.name||account.username),'on');
+  setConn('Live '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+' · '+(account.name||account.username),'on');
   renderAll();
 }
 function allocRow(){return emptyItemRows.length?emptyItemRows.shift():(++imValuesLen)}
@@ -514,7 +523,7 @@ function renderItems(){
   const o=items.filter(i=>i.status==='ORDER').length,w=items.filter(i=>i.status==='WATCH').length;
   const noloc=items.filter(i=>!i.loc).length;
   const val=items.reduce((s,i)=>s+i.oh*i.cost,0);
-  $('stats').innerHTML=items.length?`<div class="stat r"><b>${o}</b>to order</div><div class="stat a"><b>${w}</b>below par</div><div class="stat"><b>${items.length}</b>SKUs</div>${noloc?`<div class="stat a"><b>${noloc}</b>need location</div>`:''}<div class="stat"><b>$${Math.round(val).toLocaleString()}</b>on-hand value</div>`:'';
+  $('stats').innerHTML=items.length?`<div class="stat r"><b>${o}</b>to order</div><div class="stat a"><b>${w}</b>below par</div><div class="stat"><b>${items.length}</b>SKUs</div>${noloc?`<div class="stat a"><b>${noloc}</b>need location</div>`:''}${isMgr?`<div class="stat"><b>$${Math.round(val).toLocaleString()}</b>on-hand value</div>`:''}`:'';
   $('itemList').innerHTML=list.length?list.map(i=>`
     <div class="card" onclick="openTxn('${esc(i.sku)}')">
       <div class="l"><span class="sku">${esc(i.sku)}</span> <span class="pill p-${i.status}">${i.status==='ORDER'?'ORDER'+(i.crit==='Y'?' ⚠':''):i.status}</span>
@@ -522,7 +531,7 @@ function renderItems(){
         ${!i.loc?`<span class="pill p-LOC">no location</span>`:''}
         <div class="nm">${esc(i.name)}</div>
         <div class="meta">${esc(i.cat)} · ${i.loc?esc(i.loc):'—'} · ${esc(i.vendor)||'—'}</div></div>
-      ${!i.loc?`<button class="editbtn" title="Set location" onclick="event.stopPropagation();openLoc('${esc(i.sku)}')">📍</button>`:''}
+      <button class="editbtn" title="Set / change location" onclick="event.stopPropagation();openLoc('${esc(i.sku)}')">📍</button>
       ${isMgr?`<button class="editbtn" title="Edit item" onclick="event.stopPropagation();openItemForm('edit','${esc(i.sku)}')">✎</button>`:''}
       <div class="oh"><b>${i.oh}</b><span>${esc(i.uom)} / par ${i.par}</span></div>
     </div>`).join(''):(items.length?'<div class="empty">No items match.</div>':$('itemList').innerHTML);
@@ -558,13 +567,26 @@ function renderActivity(){
         <div class="nm">${esc(r.desc||r.sku)} ×${esc(r.qty)}</div>
         <div class="meta">${r.sku?esc(r.sku)+' · ':''}${r.po?esc(r.po)+' · ':''}ordered for ${esc(r.by)}${r.need?' · due '+fmtDate(r.need):''}</div></div>
       <span style="color:var(--mut);font-size:18px">›</span></div>`).join('')+'<div style="height:10px"></div>':'';
-  const list=txns.slice(-50).reverse();
+  const qa=($('qa').value||'').trim().toLowerCase();
+  let list=txns.slice().reverse();
+  if(qa)list=list.filter(t=>((t.sku||'')+' '+(t.name||'')+' '+(t.type||'')+' '+(t.by||'')+' '+(t.proj||'')+' '+(t.notes||'')).toLowerCase().includes(qa));
+  list=list.slice(0,qa?150:50);
   $('actList').innerHTML=list.length?list.map(t=>{const s=t.signed||((signs[t.type]??0)*t.qty);
     return`<div class="card" style="cursor:default"><div class="l"><span class="sku">${fmtDate(t.date)} · ${esc(t.by)}</span>
       <div class="nm">${esc(t.type)} — ${esc(t.name||t.sku)}</div>
       <div class="meta">${esc(t.sku)}${t.proj?' · '+esc(t.proj):''}${t.notes?' · '+esc(t.notes):''}</div></div>
       <div class="oh"><b style="color:${s<0?'var(--red)':'var(--grn)'}">${s<0?'−':'+'}${Math.abs(t.qty)}</b></div></div>`}).join('')
-    :'<div class="empty">No transactions yet.</div>';
+    :(qa?'<div class="empty">No history matches "'+esc(qa)+'".</div>':'<div class="empty">No transactions yet.</div>');
+}
+function histHtml(sku){
+  if(!sku)return'';
+  const h=txns.filter(t=>t.sku===sku).reverse();
+  if(!h.length)return'';
+  const row=t=>{const s=t.signed||((signs[t.type]??0)*t.qty);
+    return`<div><b style="color:${s<0?'var(--red)':'var(--grn)'}">${s<0?'−':'+'}${Math.abs(t.qty)}</b> ${esc(shortType(t.type))} · ${fmtDate(t.date)} · ${esc(t.by)}${t.proj?' · '+esc(t.proj):''}${t.notes?' · '+esc(t.notes):''}</div>`};
+  window.__fullHist=h.map(row).join('');
+  const more=h.length>4?`<span class="histmore" onclick="this.parentElement.innerHTML=window.__fullHist">show all ${h.length} entries ▾</span>`:'';
+  return`<div class="hist">${h.slice(0,4).map(row).join('')}${more}</div>`;
 }
 
 /* ================= txn modal ================= */
@@ -574,7 +596,13 @@ function openTxn(sku){
   const it=items.find(i=>i.sku===sku);
   $('txTitle').textContent=it?it.name:'Log movement';
   $('txSub').textContent=it?`${it.sku} · ${it.loc||'no location yet'} · on hand ${it.oh} ${it.uom} (par ${it.par} / reorder at ${it.rp})`:'';
+  $('txHist').innerHTML=histHtml(sku);
   $('txPicker').style.display=sku?'none':'block';
+  if(!sku){
+    const rec=store.get('recent',[]).map(s=>items.find(i=>i.sku===s)).filter(Boolean);
+    $('txSearch').value='';
+    $('txSearchRes').innerHTML=rec.map(i=>`<div class="card" onclick="openTxn('${esc(i.sku)}')"><div class="l"><span class="sku">${esc(i.sku)} · recent</span><div class="nm">${esc(i.name)}</div></div><div class="oh"><b>${i.oh}</b></div></div>`).join('');
+  }
   $('tgrid').innerHTML=txnTypes.map(t=>`<button class="tbtn" data-t="${esc(t)}" onclick="pickType(this)">${esc(shortType(t))}</button>`).join('');
   $('qty').value=1;$('txProj').value='';$('txNotes').value='';
   $('txBy').value=store.get('initials','');
@@ -599,6 +627,7 @@ async function saveTxn(){
   const by=$('txBy').value.trim().toUpperCase();
   if(!by){toast('Add your initials.');return}
   store.set('initials',by);
+  store.set('recent',[curSKU,...store.get('recent',[]).filter(s=>s!==curSKU)].slice(0,5));
   const tx={sku:curSKU,type:curType,qty:qty,proj:$('txProj').value.trim(),by:by,notes:$('txNotes').value.trim()};
   closeModals();
   await commit([tx],[]);
@@ -856,6 +885,9 @@ $('statusChips').addEventListener('click',e=>{const c=e.target.closest('.chip');
   c.classList.add('act');filtStatus=c.dataset.s;renderItems();});
 $('catSel').addEventListener('change',e=>{filtCat=e.target.value;renderItems()});
 $('showClosed').addEventListener('change',renderReqs);
+$('qa').addEventListener('input',renderActivity);
+$('qty').addEventListener('keydown',e=>{if(e.key==='Enter')saveTxn()});
+$('locVal').addEventListener('keydown',e=>{if(e.key==='Enter')saveLoc()});
 $('btnRefresh').onclick=()=>loadData().then(()=>toast('Refreshed.')).catch(e=>toast('Refresh failed: '+e.message));
 let lastFocus=0;
 window.addEventListener('focus',()=>{if(account&&driveId&&Date.now()-lastFocus>30000){lastFocus=Date.now();loadData().catch(()=>{})}});
