@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inventory Portal — Denver Cutlery</title>
+<script src="config.js"></script><!-- optional: define window.PORTAL_CONFIG there so portal updates never touch your settings -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/msal-browser/3.10.0/msal-browser.min.js"
         onerror="var s=document.createElement('script');s.src='https://alcdn.msauth.net/browser/2.38.1/js/msal-browser.min.js';document.head.appendChild(s)"></script>
 <style>
@@ -17,11 +18,13 @@ header h1{font-size:17px;font-weight:600}
 .dot{width:9px;height:9px;border-radius:50%;background:#e05c4f;display:inline-block}
 .dot.on{background:#57d98a}.dot.busy{background:#f4c542}
 header .spacer{flex:1}
+.mgrbadge{background:#f4c542;color:#1F3864;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;letter-spacing:.5px}
 button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;font-size:14px}
 .btn{background:var(--blue);color:#fff;padding:8px 14px;font-weight:600}
 .btn.ghost{background:rgba(255,255,255,.16);color:#fff}
 .btn.sec{background:#E7ECF5;color:var(--navy)}
 .btn.warn{background:var(--red);color:#fff}
+.btn.grn{background:var(--grn);color:#fff}
 .btn:disabled{opacity:.5;cursor:default}
 nav{display:flex;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:52px;z-index:40;overflow-x:auto}
 nav button{flex:1;min-width:90px;padding:11px 6px;background:none;color:var(--mut);font-weight:600;font-size:14px;border-bottom:3px solid transparent;border-radius:0;white-space:nowrap}
@@ -31,7 +34,7 @@ main{max-width:1000px;margin:0 auto;padding:14px 12px 90px}
 .searchwrap{position:sticky;top:96px;z-index:30;background:var(--bg);padding:6px 0 8px}
 #q{width:100%;padding:12px 14px;font-size:16px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
 #q:focus{outline:2px solid var(--blue)}
-.chips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.chips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
 .chip{background:#fff;border:1.5px solid var(--line);color:var(--mut);padding:5px 12px;border-radius:16px;font-size:13px;font-weight:600}
 .chip.act{background:var(--navy);color:#fff;border-color:var(--navy)}
 .stats{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
@@ -47,6 +50,7 @@ main{max-width:1000px;margin:0 auto;padding:14px 12px 90px}
 .card .oh{text-align:right;min-width:74px}
 .card .oh b{font-size:18px}
 .card .oh span{display:block;font-size:11.5px;color:var(--mut)}
+.editbtn{background:#F0F3F9;color:var(--navy);width:34px;height:34px;border-radius:8px;font-size:15px;flex:none}
 .pill{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap}
 .p-ORDER{background:var(--redbg);color:var(--red)}
 .p-WATCH{background:var(--ambbg);color:var(--amb)}
@@ -73,6 +77,8 @@ label{font-size:12px;font-weight:700;color:var(--mut);display:block;margin-botto
 input[type=text],input[type=date],input[type=number],select{width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;font-size:15px;font-family:inherit;background:#fff}
 .saverow{display:flex;gap:10px;margin-top:14px}
 .saverow .btn{flex:1;padding:14px;font-size:16px}
+.actrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.actrow .btn{padding:10px 14px}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;display:none;z-index:200;max-width:92vw;box-shadow:0 6px 24px rgba(0,0,0,.25)}
 table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;font-size:13.5px}
 th{background:var(--navy);color:#fff;text-align:left;padding:8px 10px;font-size:12px}
@@ -82,14 +88,13 @@ td{padding:8px 10px;border-top:1px solid var(--line)}
 .help h3{color:var(--navy);margin:14px 0 4px;font-size:15px}
 .help h3:first-child{margin-top:0}
 .fab{position:fixed;bottom:22px;right:20px;width:58px;height:58px;border-radius:50%;background:var(--navy);color:#fff;font-size:28px;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:60;display:none}
-code{background:#eef1f6;border-radius:4px;padding:1px 5px;font-size:13px}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px}
-@keyframes sp{to{transform:rotate(360deg)}}
+.detail{background:#F7F9FC;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px;line-height:1.7;margin-bottom:10px}
 </style>
 </head>
 <body>
 <header>
   <h1>Inventory Portal</h1>
+  <span id="mgrBadge" class="mgrbadge" style="display:none">MANAGER</span>
   <span id="connState"><span class="dot" id="connDot"></span><span id="connTxt">Signed out</span></span>
   <span class="spacer"></span>
   <button class="btn ghost" id="btnRefresh" style="display:none">↻ Refresh</button>
@@ -98,11 +103,12 @@ code{background:#eef1f6;border-radius:4px;padding:1px 5px;font-size:13px}
 <nav id="tabs">
   <button data-t="items" class="act">Items</button>
   <button data-t="reorder">Reorder <span class="bdg" id="bdgOrder" style="display:none"></span></button>
-  <button data-t="requests">Requests</button>
+  <button data-t="requests">Requests <span class="bdg" id="bdgReq" style="display:none"></span></button>
   <button data-t="activity">Activity</button>
   <button data-t="help">Help</button>
 </nav>
 <main>
+  <div id="schemaWarn" class="banner" style="display:none;margin-top:12px"></div>
   <section id="tab-items">
     <div class="searchwrap">
       <input id="q" type="search" placeholder="Search SKU, name, category, location, vendor…" autocomplete="off">
@@ -112,6 +118,7 @@ code{background:#eef1f6;border-radius:4px;padding:1px 5px;font-size:13px}
         <button class="chip" data-s="WATCH">Watch</button>
         <button class="chip" data-s="OK">OK</button>
         <select id="catSel" class="chip" style="max-width:180px"><option value="">All categories</option></select>
+        <button class="chip" id="btnAddItem" style="display:none">＋ Add item</button>
       </div>
     </div>
     <div class="stats" id="stats"></div>
@@ -137,20 +144,25 @@ code{background:#eef1f6;border-radius:4px;padding:1px 5px;font-size:13px}
   <section id="tab-help" style="display:none">
     <div class="help">
       <h3>What this page does</h3>
-      This portal reads and writes <b>Inventory_Control_Workbook.xlsx directly in SharePoint</b> through Microsoft's cloud API — the same co-authoring service Excel Online uses. Any number of people can log movements at the same time, from anywhere, with no sync conflicts or duplicate copies. The workbook stays the system of record; entries appear in it within seconds.
-      <h3>Daily use</h3>
-      Search → tap the item → tap what happened (<b>Used, Received, Shipped…</b>) → qty → <b>Save</b>. Initials are remembered on this device. Use <b>＋ New request</b> for non-stock needs.
-      <h3>Sign-in</h3>
-      Use your normal work Microsoft account. Access follows SharePoint permissions — if you can open the workbook, you can use the portal. IT setup (one time, by admin) is described in Portal_Cloud_Setup_Guide.docx.
+      Reads and writes <b>Inventory_Control_Workbook.xlsx directly in SharePoint</b> via Microsoft's co-authoring API. Unlimited simultaneous users, no sync conflicts. The workbook remains the system of record.
+      <h3>Daily use — everyone</h3>
+      Search → tap item → tap what happened → qty → <b>Save</b>. Use <b>＋ New request</b> for things purchasing should order, and <b>＋ Add item</b> to register a brand-new stocked SKU (pick category first — the SKU number is suggested automatically).
+      <h3>Manager tools</h3>
+      Accounts listed as managers in the config see a MANAGER badge and can: work requests through their lifecycle (Acknowledge → Ordered with PO # → Received → Delivered, or Cancel), convert a non-stock request into a full Item Master SKU (the form pre-fills from the request, you add pars/vendor/cost), and edit any item's master data via the ✎ button on its card. Marking a request <b>Received</b> offers to log the receiving transaction automatically — so receipts against requests are one tap and never double-entered.
+      <h3>Flow rules (why nothing is redundant)</h3>
+      Stock levels change ONLY via Transaction Log rows. Requests never change stock by themselves — they change stock exactly once, at the moment a Received request logs its receiving transaction. Converting a request to a SKU writes the new SKU back onto the request row, linking them. Ad-hoc receipts (no request) are still logged directly on the item.
+      <h3>Adding categories or vendors</h3>
+      Categories live on the workbook's Lists sheet and vendors on the Vendors sheet — the manager adds them there in Excel; the portal picks them up on next refresh.
       <h3>If a save fails</h3>
-      Lost signal or an expired session queues the entry locally — see the Activity tab for a <b>Retry</b> button. Nothing is lost.
-      <h3>Notes</h3>
-      Data refreshes on every save, on ↻ Refresh, and when you return to the tab. On-hand, status, and reorder quantities come from the workbook's own formulas, so this page and Excel always agree.
+      Entries queue locally — Activity tab has Retry. Nothing is lost.
+      <h3>Version</h3>
+      <span id="verLine"></span> — update procedure and rollback paths are in <b>Feature_Update_Process.docx</b>. Workbook history: SharePoint keeps automatic versions of the file (library → Version history) — that is your undo for anything.
     </div>
   </section>
 </main>
 <button class="fab" id="fab" title="Log a movement">＋</button>
 
+<!-- TXN MODAL -->
 <div class="modal" id="mTxn"><div class="sheet">
   <h2 id="txTitle">Log movement</h2><div class="sub" id="txSub"></div>
   <div id="txPicker" style="display:none;margin-bottom:10px">
@@ -178,6 +190,7 @@ code{background:#eef1f6;border-radius:4px;padding:1px 5px;font-size:13px}
   </div>
 </div></div>
 
+<!-- REQUEST CREATE MODAL -->
 <div class="modal" id="mReq"><div class="sheet">
   <h2>New request</h2><div class="sub">Ask purchasing to order something — stocked or not.</div>
   <div class="frow">
@@ -187,7 +200,7 @@ code{background:#eef1f6;border-radius:4px;padding:1px 5px;font-size:13px}
   <div style="margin-bottom:10px"><label>Item / description</label><input type="text" id="rqDesc" placeholder="What do you need?"></div>
   <div class="frow">
     <div><label>Needed by</label><input type="date" id="rqNeed"></div>
-    <div><label>Priority</label><select id="rqPrio"><option>Normal</option><option>Urgent</option><option>High</option><option>Low</option></select></div>
+    <div><label>Priority</label><select id="rqPrio"></select></div>
   </div>
   <div class="frow">
     <div><label>Project / job #</label><input type="text" id="rqProj"></div>
@@ -200,24 +213,81 @@ code{background:#eef1f6;border-radius:4px;padding:1px 5px;font-size:13px}
   </div>
 </div></div>
 
+<!-- REQUEST MANAGE MODAL (manager) -->
+<div class="modal" id="mReqAct"><div class="sheet">
+  <h2 id="raTitle">Manage request</h2><div class="sub" id="raSub"></div>
+  <div class="detail" id="raDetail"></div>
+  <div class="frow">
+    <div><label>PO #</label><input type="text" id="raPo" placeholder="PO-4490"></div>
+  </div>
+  <div id="raConvertWrap" style="display:none;margin-bottom:6px">
+    <div class="banner" style="margin-bottom:8px">This request has no SKU. To stock and track it, convert it to an Item Master entry — the form pre-fills from the request.</div>
+    <button class="btn sec" onclick="startConvert()">Convert to stocked item…</button>
+  </div>
+  <label>Actions</label>
+  <div class="actrow" id="raActions"></div>
+  <div class="saverow">
+    <button class="btn sec" onclick="closeModals()">Close</button>
+  </div>
+</div></div>
+
+<!-- ITEM ADD/EDIT MODAL -->
+<div class="modal" id="mItem"><div class="sheet">
+  <h2 id="itTitle">Add item</h2><div class="sub" id="itSub">Registers a new SKU on the Item Master. Purchasing sets pars later if you're unsure — leave defaults.</div>
+  <div class="frow">
+    <div><label>Category</label><select id="itCat"></select></div>
+    <div><label>SKU / model #</label><input type="text" id="itSku" placeholder="auto-suggested"></div>
+  </div>
+  <div style="margin-bottom:10px"><label>Item name</label><input type="text" id="itName" placeholder="e.g. Door Gasket, True T-23"></div>
+  <div class="frow">
+    <div><label>Subcategory</label><input type="text" id="itSub2" placeholder="Gaskets"></div>
+    <div><label>Storage location</label><input type="text" id="itLoc" placeholder="D1-07"></div>
+    <div><label>Unit</label><input type="text" id="itUom" value="ea"></div>
+  </div>
+  <div class="frow">
+    <div><label>Critical?</label><select id="itCrit"><option>N</option><option>Y</option></select></div>
+    <div><label>Par level</label><input type="number" id="itPar" value="0"></div>
+    <div><label>Reorder point</label><input type="number" id="itRp" value="0"></div>
+  </div>
+  <div class="frow">
+    <div><label>Lead time (days)</label><input type="number" id="itLead" value="7"></div>
+    <div><label>Preferred vendor</label><input type="text" id="itVendor" list="vendList"><datalist id="vendList"></datalist></div>
+  </div>
+  <div class="frow">
+    <div><label>Unit cost ($)</label><input type="number" id="itCost" step="0.01" value="0"></div>
+    <div><label>Count on hand now</label><input type="number" id="itStart" value="0"></div>
+  </div>
+  <div class="saverow">
+    <button class="btn sec" onclick="closeModals()">Cancel</button>
+    <button class="btn" id="itSave" onclick="saveItem()">Save item</button>
+  </div>
+</div></div>
+
 <div id="toast"></div>
 
 <script>
 "use strict";
 /* =====================================================================
-   CONFIG — fill these three values in (see Portal_Cloud_Setup_Guide.docx)
+   CONFIG — used only if no config.js provides window.PORTAL_CONFIG.
+   Keep real settings in config.js so portal updates never overwrite them.
    ===================================================================== */
 const CONFIG = {
-  tenantId:    "ebeab771-6b6f-413b-a0ce-a9e2bb16d7cc",        // Entra ID → Overview → Directory (tenant) ID
-  clientId:    "26bd9358-873c-4d1f-9a6f-b58d241ef996",        // App registration → Application (client) ID
-  workbookUrl: "https://denvercutlery.sharepoint.com/:x:/s/DenverCutlery/IQAtlep2kq08SrnO01E771HeAbCDF8B6x7vaK6WxdZZxM_0?e=e7bGPn"
+  tenantId:    "YOUR-TENANT-ID-HERE",
+  clientId:    "YOUR-CLIENT-ID-HERE",
+  workbookUrl: "https://YOURCOMPANY.sharepoint.com/sites/YOURSITE/Shared%20Documents/Inventory_Control_Workbook.xlsx",
+  managers:    ["bblessinger@denvercutlery.com"]   // accounts that see manager tools
 };
 /* ===================================================================== */
-
+const CFG = (typeof window!=='undefined' && window.PORTAL_CONFIG) ? window.PORTAL_CONFIG : CONFIG;
+const APP_VERSION="2.1.0", EXPECTED_SCHEMA=2;
 const SCOPES=["Files.ReadWrite.All"];
-let pca=null, account=null, driveId=null, itemId=null;
-let items=[], txns=[], reqs=[], signs={}, txnTypes=[];
+const CAT_PREFIX={"Smallwares":"SW","Plumbing & Hardware":"PH","Custom Fabrication":"FAB","Service Parts":"SP","Refrigeration Equipment":"RE"};
+
+let pca=null, account=null, driveId=null, itemId=null, isMgr=false;
+let items=[], txns=[], reqs=[], signs={}, txnTypes=[], cats=[], prios=[], vendors=[], schemaVer=null;
+let reqStartRow=2, imValuesLen=0, firstEmptyItemRow=null;
 let curSKU=null, curType=null, filtStatus='', filtCat='', queue=[];
+let curReq=null, itemMode='add', editItem=null, convertReq=null;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store={get:(k,d)=>{try{const v=localStorage.getItem('invpc_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem('invpc_'+k,JSON.stringify(v))}catch(e){}}};
@@ -226,10 +296,11 @@ queue=store.get('queue',[]);
 /* ================= auth ================= */
 function msalReady(){return typeof msal!=='undefined'}
 async function initAuth(){
+  $('verLine').textContent='Portal v'+APP_VERSION+' · workbook schema '+EXPECTED_SCHEMA;
   if(!msalReady()){setTimeout(initAuth,400);return}
-  if(CONFIG.clientId.startsWith('YOUR-')){setConn('Not configured — see Help','');$('welcome').innerHTML='This page needs one-time IT setup.<br>Open <b>Portal_Cloud_Setup_Guide.docx</b> and fill in the CONFIG block at the top of this file.';return}
+  if(CFG.clientId.startsWith('YOUR-')){setConn('Not configured — see Help','');$('welcome').innerHTML='This page needs one-time IT setup.<br>See <b>Portal_Cloud_Setup_Guide.docx</b>.';return}
   pca=new msal.PublicClientApplication({
-    auth:{clientId:CONFIG.clientId,authority:`https://login.microsoftonline.com/${CONFIG.tenantId}`,redirectUri:window.location.origin+window.location.pathname},
+    auth:{clientId:CFG.clientId,authority:`https://login.microsoftonline.com/${CFG.tenantId}`,redirectUri:window.location.origin+window.location.pathname},
     cache:{cacheLocation:'localStorage'}
   });
   if(pca.initialize)await pca.initialize();
@@ -238,22 +309,22 @@ async function initAuth(){
 }
 async function signIn(){
   if(!pca){toast('Auth not ready yet — try again in a second.');return}
-  try{
-    const res=await pca.loginPopup({scopes:SCOPES});
-    account=res.account;await afterSignIn();
-  }catch(e){toast('Sign-in failed: '+(e.errorMessage||e.message))}
+  try{const res=await pca.loginPopup({scopes:SCOPES});account=res.account;await afterSignIn();}
+  catch(e){toast('Sign-in failed: '+(e.errorMessage||e.message))}
 }
 async function getToken(){
   try{return (await pca.acquireTokenSilent({scopes:SCOPES,account})).accessToken}
   catch(e){const r=await pca.acquireTokenPopup({scopes:SCOPES,account});return r.accessToken}
 }
 async function afterSignIn(){
+  isMgr=(CFG.managers||[]).map(m=>m.toLowerCase()).includes((account.username||'').toLowerCase());
+  $('mgrBadge').style.display=isMgr?'':'none';
   $('btnAuth').textContent=(account.name||account.username).split(' ')[0]+' · Sign out';
   setConn('Connecting…','busy');
   try{
     await resolveFile();
     await loadData();
-    $('btnRefresh').style.display='';$('fab').style.display='block';
+    $('btnRefresh').style.display='';$('fab').style.display='block';$('btnAddItem').style.display='';
     if(queue.length)toast(queue.length+' queued entries waiting — see Activity tab to retry.');
   }catch(e){setConn('Error','');toast('Could not open workbook: '+e.message)}
 }
@@ -270,7 +341,7 @@ async function g(method,url,body){
   return res.status===204?null:res.json();
 }
 async function resolveFile(){
-  const enc='u!'+btoa(CONFIG.workbookUrl).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const enc='u!'+btoa(CFG.workbookUrl).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   const d=await g('GET',`/shares/${enc}/driveItem?$select=id,name,parentReference`);
   itemId=d.id;driveId=d.parentReference.driveId;
 }
@@ -283,24 +354,44 @@ async function loadData(){
     body:JSON.stringify({requests:[
       {id:'1',method:'GET',url:`${WB()}/worksheets('Item Master')/usedRange?$select=values`},
       {id:'2',method:'GET',url:`${WB()}/tables('TxnLog')/dataBodyRange?$select=values`},
-      {id:'3',method:'GET',url:`${WB()}/tables('ReqLog')/dataBodyRange?$select=values`},
-      {id:'4',method:'GET',url:`${WB()}/worksheets('Lists')/range(address='D2:E8')?$select=values`}
+      {id:'3',method:'GET',url:`${WB()}/tables('ReqLog')/dataBodyRange?$select=values,address`},
+      {id:'4',method:'GET',url:`${WB()}/worksheets('Lists')/usedRange?$select=values`},
+      {id:'5',method:'GET',url:`${WB()}/worksheets('Vendors')/range(address='A2:A30')?$select=values`},
+      {id:'6',method:'GET',url:`${WB()}/worksheets('Meta')/range(address='B1')?$select=values`}
     ]})});
   if(!res.ok)throw new Error('batch load failed ('+res.status+')');
   const out=(await res.json()).responses;
-  const get=id=>{const r=out.find(x=>x.id===id);if(r.status>=400)throw new Error('load '+id+': '+(r.body&&r.body.error?r.body.error.message:r.status));return r.body.values};
-  const imv=get('1'),txv=get('2'),rqv=get('3'),lsv=get('4');
-  signs={};txnTypes=[];
-  for(const r of lsv){if(r[0]!==''&&r[0]!=null){signs[r[0]]=Number(r[1])||0;txnTypes.push(r[0]);}}
-  items=[];
-  for(const r of imv.slice(1)){
-    if(!r[0])continue;
-    items.push({sku:r[0],name:r[1],cat:r[2],sub:r[3],loc:r[4],uom:r[5],crit:r[6],par:+r[7]||0,rp:+r[8]||0,lead:+r[9]||0,vendor:r[10],cost:+r[11]||0,
+  const get=(id,tolerate)=>{const r=out.find(x=>x.id===id);
+    if(r.status>=400){if(tolerate)return null;throw new Error('load '+id+': '+(r.body&&r.body.error?r.body.error.message:r.status))}
+    return r.body};
+  const imv=get('1').values, txv=get('2').values, rqBody=get('3'), lsv=get('4').values;
+  const vnd=get('5',true), meta=get('6',true);
+  vendors=vnd?vnd.values.map(r=>r[0]).filter(Boolean):[];
+  schemaVer=meta&&meta.values?Number(meta.values[0][0]):null;
+  $('schemaWarn').style.display='none';
+  if(schemaVer!=null&&schemaVer!==EXPECTED_SCHEMA){
+    $('schemaWarn').style.display='';
+    $('schemaWarn').innerHTML=`<b>Version mismatch:</b> this portal (v${APP_VERSION}) expects workbook schema ${EXPECTED_SCHEMA} but the workbook reports ${schemaVer}. Check Feature_Update_Process.docx before making entries.`;
+  }
+  signs={};txnTypes=[];cats=[];prios=[];
+  for(const r of lsv.slice(1)){
+    if(r[0])cats.push(r[0]);
+    if(r[3]!=null&&r[3]!==''){signs[r[3]]=Number(r[4])||0;txnTypes.push(r[3]);}
+    if(r[6])prios.push(r[6]);
+  }
+  items=[];firstEmptyItemRow=null;imValuesLen=imv.length;
+  for(let k=1;k<imv.length;k++){
+    const r=imv[k];
+    if(!r[0]){if(firstEmptyItemRow==null)firstEmptyItemRow=k+1;continue}
+    items.push({row:k+1,sku:r[0],name:r[1],cat:r[2],sub:r[3],loc:r[4],uom:r[5],crit:r[6],par:+r[7]||0,rp:+r[8]||0,lead:+r[9]||0,vendor:r[10],cost:+r[11]||0,start:+r[12]||0,
       oh:+r[13]||0,status:r[14]||'OK',sq:+r[15]||0,
       ix:(r[0]+' '+r[1]+' '+r[2]+' '+r[3]+' '+r[4]+' '+r[10]).toLowerCase()});
   }
+  if(firstEmptyItemRow==null)firstEmptyItemRow=imv.length+1;
   txns=(txv||[]).filter(r=>r[1]!==''||r[3]!=='').map(r=>({date:r[0],sku:r[1],name:r[2],type:r[3],qty:+r[4]||0,signed:+r[5]||0,proj:r[6],by:r[7],notes:r[8]}));
-  reqs=(rqv||[]).filter(r=>r[1]!==''||r[3]!=='').map(r=>({date:r[0],by:r[1],sku:r[2],desc:r[3],qty:r[4],need:r[5],proj:r[6],prio:r[7],status:r[8]||'New',po:r[9],notes:r[10]}));
+  const m=(rqBody.address||'').match(/!\$?[A-Z]+\$?(\d+):/);reqStartRow=m?+m[1]:2;
+  reqs=[];
+  (rqBody.values||[]).forEach((r,i)=>{if(r[1]!==''||r[3]!==''){reqs.push({idx:i,row:reqStartRow+i,raw:r.slice(),date:r[0],by:r[1],sku:r[2],desc:r[3],qty:r[4],need:r[5],proj:r[6],prio:r[7],status:r[8]||'New',po:r[9],notes:r[10]});}});
   setConn('Live · '+(account.name||account.username),'on');
   renderAll();
 }
@@ -308,6 +399,9 @@ async function loadData(){
 /* ================= writes ================= */
 function dateSerial(d){if(typeof d==='string'&&d){const p=d.split('-');return Math.round(Date.UTC(+p[0],+p[1]-1,+p[2])/86400000)+25569}
   return Math.round(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000)+25569}
+async function patchRange(sheet,addr,payload){
+  return g('PATCH',`${WB()}/worksheets('${encodeURIComponent(sheet)}')/range(address='${addr}')`,payload);
+}
 async function addTxnRow(tx){
   const it=items.find(i=>i.sku===tx.sku);
   const signed=tx.qty*(signs[tx.type]??0);
@@ -317,18 +411,37 @@ async function addReqRow(rq){
   const it=items.find(i=>i.sku===rq.sku);
   await g('POST',`${WB()}/tables('ReqLog')/rows/add`,{values:[[dateSerial(new Date()),rq.by,rq.sku||'',rq.desc||(it?it.name:''),rq.qty,rq.need?dateSerial(rq.need):'',rq.proj||'',rq.prio,'New','',rq.notes||'']]});
 }
+async function updateReqRow(req,changes){
+  const v=req.raw.slice();
+  if(changes.sku!==undefined)v[2]=changes.sku;
+  if(changes.desc!==undefined)v[3]=changes.desc;
+  if(changes.status!==undefined)v[8]=changes.status;
+  if(changes.po!==undefined)v[9]=changes.po;
+  await patchRange('Request Log',`A${req.row}:K${req.row}`,{values:[v]});
+}
+async function writeItemRow(row,f){
+  await patchRange('Item Master',`A${row}:M${row}`,{values:[[f.sku,f.name,f.cat,f.sub,f.loc,f.uom,f.crit,f.par,f.rp,f.lead,f.vendor,f.cost,f.start]]});
+  if(row>120){
+    await patchRange('Item Master',`N${row}:R${row}`,{formulas:[[
+      `=IF($A${row}="","",M${row}+SUMIFS('Transaction Log'!$F:$F,'Transaction Log'!$B:$B,$A${row}))`,
+      `=IF($A${row}="","",IF(N${row}<=I${row},"ORDER",IF(N${row}<H${row},"WATCH","OK")))`,
+      `=IF($A${row}="","",IF(O${row}="ORDER",MAX(0,H${row}-N${row}),""))`,
+      `=IF($A${row}="","",N${row}*L${row})`,
+      `=IF(O${row}="ORDER",COUNTIF(O$2:O${row},"ORDER"),"")`]]});
+  }
+}
 async function commit(txList,rqList){
   setConn('Saving…','busy');
   try{
     for(const t of txList)await addTxnRow(t);
     for(const r of rqList)await addReqRow(r);
     await loadData();
-    toast('✓ Saved to SharePoint — '+(txList[0]?`${shortType(txList[0].type)} ${txList[0].qty} × ${txList[0].sku}`:'request submitted'));
+    toast('✓ Saved — '+(txList[0]?`${shortType(txList[0].type)} ${txList[0].qty} × ${txList[0].sku}`:'request submitted'));
   }catch(e){
     for(const t of txList)queue.push({kind:'tx',...t});
     for(const r of rqList)queue.push({kind:'rq',...r});
     store.set('queue',queue);renderActivity();
-    setConn('Live · '+(account?(account.name||''):''),'on');
+    setConn('Live','on');
     toast('Save failed ('+e.message+') — entry queued. Retry from Activity tab.');
   }
 }
@@ -337,13 +450,18 @@ async function retryQueue(){
   await commit(q.filter(x=>x.kind==='tx'),q.filter(x=>x.kind==='rq'));
 }
 
-/* ================= render (same UI as local portal) ================= */
+/* ================= render ================= */
 function renderAll(){renderItems();renderReorder();renderReqs();renderActivity();renderCats();
   const n=items.filter(i=>i.status==='ORDER').length;
-  $('bdgOrder').style.display=n?'':'none';$('bdgOrder').textContent=n;}
+  $('bdgOrder').style.display=n?'':'none';$('bdgOrder').textContent=n;
+  const rn=reqs.filter(r=>['New','Reviewed'].includes(r.status)).length;
+  $('bdgReq').style.display=rn&&isMgr?'':'none';$('bdgReq').textContent=rn;}
 function renderCats(){
-  const cats=[...new Set(items.map(i=>i.cat))].filter(Boolean).sort();
-  $('catSel').innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option${c===filtCat?' selected':''}>${esc(c)}</option>`).join('');
+  const catsAll=[...new Set(items.map(i=>i.cat))].filter(Boolean).sort();
+  $('catSel').innerHTML='<option value="">All categories</option>'+catsAll.map(c=>`<option${c===filtCat?' selected':''}>${esc(c)}</option>`).join('');
+  $('itCat').innerHTML=cats.map(c=>`<option>${esc(c)}</option>`).join('');
+  $('rqPrio').innerHTML=(prios.length?prios:['Normal','Urgent','High','Low']).map(p=>`<option${p==='Normal'?' selected':''}>${esc(p)}</option>`).join('');
+  $('vendList').innerHTML=vendors.map(v=>`<option value="${esc(v)}">`).join('');
 }
 function match(it,q){if(!q)return true;return q.toLowerCase().split(/\s+/).every(t=>it.ix.includes(t));}
 function renderItems(){
@@ -359,6 +477,7 @@ function renderItems(){
       <div class="l"><span class="sku">${esc(i.sku)}</span> <span class="pill p-${i.status}">${i.status==='ORDER'?'ORDER'+(i.crit==='Y'?' ⚠':''):i.status}</span>
         <div class="nm">${esc(i.name)}</div>
         <div class="meta">${esc(i.cat)} · ${esc(i.loc)} · ${esc(i.vendor)}</div></div>
+      ${isMgr?`<button class="editbtn" title="Edit item" onclick="event.stopPropagation();openItemForm('edit','${esc(i.sku)}')">✎</button>`:''}
       <div class="oh"><b>${i.oh}</b><span>${esc(i.uom)} / par ${i.par}</span></div>
     </div>`).join(''):(items.length?'<div class="empty">No items match.</div>':$('itemList').innerHTML);
 }
@@ -374,10 +493,11 @@ function renderReqs(){
   const showClosed=$('showClosed').checked;
   const list=reqs.filter(r=>showClosed||!['Delivered','Canceled'].includes(r.status));
   $('reqList').innerHTML=list.length?list.slice().reverse().map(r=>`
-    <div class="card" style="cursor:default">
-      <div class="l"><span class="pill p-${esc(r.status)}">${esc(r.status)}</span> ${r.prio==='Urgent'?'<span class="pill p-ORDER">URGENT</span>':''}
+    <div class="card" ${isMgr?`onclick="openReqAct(${r.idx})"`:'style="cursor:default"'}>
+      <div class="l"><span class="pill p-${esc(r.status)}">${esc(r.status)}</span> ${r.prio==='Urgent'?'<span class="pill p-ORDER">URGENT</span>':''} ${!r.sku?'<span class="pill" style="background:#eee;color:#666">non-stock</span>':''}
         <div class="nm">${esc(r.desc||r.sku)} ×${esc(r.qty)}</div>
-        <div class="meta">${fmtDate(r.date)} · by ${esc(r.by)}${r.proj?' · '+esc(r.proj):''}${r.need?' · need by '+fmtDate(r.need):''}${r.po?' · '+esc(r.po):''}</div></div>
+        <div class="meta">${fmtDate(r.date)} · by ${esc(r.by)}${r.sku?' · '+esc(r.sku):''}${r.proj?' · '+esc(r.proj):''}${r.need?' · need by '+fmtDate(r.need):''}${r.po?' · '+esc(r.po):''}</div></div>
+      ${isMgr?'<span style="color:var(--mut);font-size:18px">›</span>':''}
     </div>`).join(''):'<div class="empty">No open requests.</div>';
 }
 function renderActivity(){
@@ -394,7 +514,7 @@ function renderActivity(){
     :'<div class="empty">No transactions yet.</div>';
 }
 
-/* ================= modals ================= */
+/* ================= txn modal ================= */
 function openTxn(sku){
   if(!items.length){toast('Sign in first.');return}
   curSKU=sku;curType=null;
@@ -430,10 +550,12 @@ async function saveTxn(){
   closeModals();
   await commit([tx],[]);
 }
+
+/* ================= request create ================= */
 $('btnNewReq').onclick=()=>{
   if(!items.length){toast('Sign in first.');return}
   $('rqSku').value='';$('rqDesc').value='';$('rqQty').value=1;$('rqNeed').value='';$('rqProj').value='';$('rqNotes').value='';
-  $('rqPrio').value='Normal';$('rqBy').value=store.get('initials','');$('rqSkuRes').innerHTML='';
+  $('rqBy').value=store.get('initials','');$('rqSkuRes').innerHTML='';
   $('mReq').classList.add('open');
 };
 $('rqSku').addEventListener('input',e=>{
@@ -451,6 +573,102 @@ async function saveReq(){
   await commit([],[rq]);
 }
 
+/* ================= request manage (manager) ================= */
+function openReqAct(idx){
+  curReq=reqs.find(r=>r.idx===idx);if(!curReq)return;
+  const r=curReq;
+  $('raTitle').textContent=r.desc||r.sku||'Request';
+  $('raSub').innerHTML=`<span class="pill p-${esc(r.status)}">${esc(r.status)}</span>`;
+  $('raDetail').innerHTML=`Requested ${fmtDate(r.date)} by <b>${esc(r.by)}</b> · qty <b>${esc(r.qty)}</b>${r.sku?` · SKU <b>${esc(r.sku)}</b>`:' · <b>non-stock</b>'}${r.proj?` · job ${esc(r.proj)}`:''}${r.need?` · needed by ${fmtDate(r.need)}`:''}${r.notes?`<br>Notes: ${esc(r.notes)}`:''}`;
+  $('raPo').value=r.po||'';
+  $('raConvertWrap').style.display=(!r.sku&&!['Delivered','Canceled'].includes(r.status))?'':'none';
+  const acts=[];
+  const B=(label,cls,fn)=>`<button class="btn ${cls}" onclick="${fn}">${label}</button>`;
+  if(['New'].includes(r.status))acts.push(B('Acknowledge','sec',"reqAction('Reviewed')"));
+  if(['New','Reviewed'].includes(r.status))acts.push(B('Mark ordered','',"reqAction('Ordered')"));
+  if(r.status==='Ordered')acts.push(B('Mark received','grn',"reqAction('Received')"),B('Mark delivered','sec',"reqAction('Delivered')"));
+  if(r.status==='Received')acts.push(B('Mark delivered','grn',"reqAction('Delivered')"));
+  if(!['Canceled','Delivered'].includes(r.status))acts.push(B('Cancel request','warn',"reqAction('Canceled')"));
+  if(['Canceled','Delivered'].includes(r.status))acts.push(B('Reopen','sec',"reqAction('Reviewed')"));
+  acts.push(B('Save PO # only','sec',"reqAction(null)"));
+  $('raActions').innerHTML=acts.join('');
+  $('mReqAct').classList.add('open');
+}
+async function reqAction(newStatus){
+  if(!curReq)return;
+  const r=curReq,po=$('raPo').value.trim();
+  const changes={po:po};
+  if(newStatus)changes.status=newStatus;
+  if(newStatus==='Ordered'&&!r.sku&&!confirm('This request has no SKU, so it won\'t be tracked in inventory. Order as-is anyway?\n\n(Tip: use "Convert to stocked item" first to track it.)'))return;
+  closeModals();
+  setConn('Saving…','busy');
+  try{
+    await updateReqRow(r,changes);
+    let logged='';
+    if(newStatus==='Received'&&r.sku&&+r.qty>0&&confirm(`Also log ${r.qty} × ${r.sku} as Received into the Transaction Log?\n(Keeps stock accurate without double entry — say No only if it was already logged.)`)){
+      await addTxnRow({sku:r.sku,type:'Received',qty:+r.qty,proj:r.proj||'',by:store.get('initials','PM')||'PM',notes:'Req by '+r.by+(po?' / '+po:'')});
+      logged=' + receipt logged';
+    }
+    await loadData();
+    toast('✓ Request updated'+(newStatus?' → '+newStatus:'')+logged);
+  }catch(e){toast('Update failed: '+e.message);setConn('Live','on')}
+}
+function startConvert(){
+  convertReq={req:curReq,po:$('raPo').value.trim()};
+  closeModals();
+  openItemForm('add',null,{name:curReq.desc||'',vendor:'',par:Math.max(2,(+curReq.qty||1)*2),rp:Math.max(1,+curReq.qty||1)});
+}
+
+/* ================= item add/edit ================= */
+function suggestSku(cat){
+  const pre=CAT_PREFIX[cat]||((cat||'XX').replace(/[^A-Za-z]/g,'').slice(0,2).toUpperCase()||'XX');
+  let n=0;
+  for(const i of items){const m=i.sku.match(new RegExp('^'+pre+'-(\\d+)$'));if(m)n=Math.max(n,+m[1]);}
+  return pre+'-'+String(n+1).padStart(3,'0');
+}
+function openItemForm(mode,sku,prefill){
+  itemMode=mode;editItem=mode==='edit'?items.find(i=>i.sku===sku):null;
+  if(mode==='add'&&!convertReq)convertReq=null;
+  $('itTitle').textContent=mode==='edit'?'Edit item — '+sku:(convertReq?'Convert request to stocked item':'Add item');
+  $('itSub').textContent=mode==='edit'?'Changes update the Item Master row directly. On-hand is calculated and not edited here — use an Adjust transaction for count corrections.':'Registers a new SKU on the Item Master. Not sure about pars? Leave 0 — purchasing will set them.';
+  const f=editItem||Object.assign({sku:'',name:'',cat:cats[0]||'',sub:'',loc:'',uom:'ea',crit:'N',par:0,rp:0,lead:7,vendor:'',cost:0,start:0},prefill||{});
+  $('itCat').value=f.cat||cats[0]||'';
+  $('itSku').value=f.sku||suggestSku($('itCat').value);
+  $('itSku').disabled=mode==='edit';
+  $('itName').value=f.name;$('itSub2').value=f.sub;$('itLoc').value=f.loc;$('itUom').value=f.uom;
+  $('itCrit').value=f.crit||'N';$('itPar').value=f.par;$('itRp').value=f.rp;$('itLead').value=f.lead;
+  $('itVendor').value=f.vendor;$('itCost').value=f.cost;$('itStart').value=f.start;
+  $('itStart').disabled=mode==='edit';
+  $('mItem').classList.add('open');
+}
+$('itCat').addEventListener('change',()=>{if(itemMode==='add')$('itSku').value=suggestSku($('itCat').value)});
+$('btnAddItem').onclick=()=>{convertReq=null;openItemForm('add')};
+async function saveItem(){
+  const f={sku:$('itSku').value.trim(),name:$('itName').value.trim(),cat:$('itCat').value,sub:$('itSub2').value.trim(),
+    loc:$('itLoc').value.trim(),uom:$('itUom').value.trim()||'ea',crit:$('itCrit').value,
+    par:parseFloat($('itPar').value)||0,rp:parseFloat($('itRp').value)||0,lead:parseFloat($('itLead').value)||0,
+    vendor:$('itVendor').value.trim(),cost:parseFloat($('itCost').value)||0,start:parseFloat($('itStart').value)||0};
+  if(!f.sku||!f.name){toast('SKU and name are required.');return}
+  if(f.rp>f.par&&f.par>0){toast('Reorder point is above par — check the numbers.');return}
+  if(itemMode==='add'&&items.some(i=>i.sku.toLowerCase()===f.sku.toLowerCase())){toast('That SKU already exists.');return}
+  closeModals();setConn('Saving…','busy');
+  try{
+    if(itemMode==='edit'){
+      f.start=editItem.start; // never touched in edit mode
+      await writeItemRow(editItem.row,f);
+      toast('✓ Item updated — '+f.sku);
+    }else{
+      await writeItemRow(firstEmptyItemRow,f);
+      if(convertReq){
+        await updateReqRow(convertReq.req,{sku:f.sku,status:'Ordered',po:convertReq.po});
+        toast('✓ '+f.sku+' created and request marked Ordered'+(convertReq.po?' ('+convertReq.po+')':''));
+        convertReq=null;
+      }else toast('✓ Item added — '+f.sku);
+    }
+    await loadData();
+  }catch(e){toast('Save failed: '+e.message);setConn('Live','on')}
+}
+
 /* ================= misc ================= */
 $('btnCopyOrder').onclick=()=>{
   const list=items.filter(i=>i.status==='ORDER');
@@ -465,8 +683,8 @@ function switchTab(t){
 }
 $('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)switchTab(b.dataset.t)});
 $('q').addEventListener('input',renderItems);
-$('statusChips').addEventListener('click',e=>{const c=e.target.closest('.chip');if(!c||c.tagName==='SELECT')return;
-  document.querySelectorAll('#statusChips .chip').forEach(x=>{if(x.tagName!=='SELECT')x.classList.remove('act')});
+$('statusChips').addEventListener('click',e=>{const c=e.target.closest('.chip');if(!c||c.tagName==='SELECT'||c.id==='btnAddItem')return;
+  document.querySelectorAll('#statusChips .chip').forEach(x=>{if(x.tagName!=='SELECT'&&x.id!=='btnAddItem')x.classList.remove('act')});
   c.classList.add('act');filtStatus=c.dataset.s;renderItems();});
 $('catSel').addEventListener('change',e=>{filtCat=e.target.value;renderItems()});
 $('showClosed').addEventListener('change',renderReqs);
@@ -475,7 +693,7 @@ let lastFocus=0;
 window.addEventListener('focus',()=>{if(account&&driveId&&Date.now()-lastFocus>30000){lastFocus=Date.now();loadData().catch(()=>{})}});
 document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('q').focus()}if(e.key==='Escape')closeModals()});
 function setConn(txt,cls){$('connTxt').textContent=txt;$('connDot').className='dot '+cls}
-let toastTimer;function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.style.display='none',4800)}
+let toastTimer;function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.style.display='none',5200)}
 initAuth();
 </script>
 </body>
