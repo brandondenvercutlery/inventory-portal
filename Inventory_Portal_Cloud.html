@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory Portal — Denver Cutlery</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/msal-browser/3.10.0/msal-browser.min.js"
+        onerror="var s=document.createElement('script');s.src='https://alcdn.msauth.net/browser/2.38.1/js/msal-browser.min.js';document.head.appendChild(s)"></script>
+<style>
+:root{--navy:#1F3864;--blue:#2E5395;--bg:#F4F6FA;--card:#fff;--ink:#1a2233;--mut:#6b7686;
+--red:#C0392B;--redbg:#FDECEA;--amb:#B7791F;--ambbg:#FFF6E0;--grn:#1E7A46;--grnbg:#E8F6EE;--line:#E3E8F0}
+*{box-sizing:border-box;margin:0}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+header{background:var(--navy);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50}
+header h1{font-size:17px;font-weight:600}
+#connState{font-size:12.5px;display:flex;align-items:center;gap:6px;opacity:.95}
+.dot{width:9px;height:9px;border-radius:50%;background:#e05c4f;display:inline-block}
+.dot.on{background:#57d98a}.dot.busy{background:#f4c542}
+header .spacer{flex:1}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;font-size:14px}
+.btn{background:var(--blue);color:#fff;padding:8px 14px;font-weight:600}
+.btn.ghost{background:rgba(255,255,255,.16);color:#fff}
+.btn.sec{background:#E7ECF5;color:var(--navy)}
+.btn.warn{background:var(--red);color:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+nav{display:flex;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:52px;z-index:40;overflow-x:auto}
+nav button{flex:1;min-width:90px;padding:11px 6px;background:none;color:var(--mut);font-weight:600;font-size:14px;border-bottom:3px solid transparent;border-radius:0;white-space:nowrap}
+nav button.act{color:var(--navy);border-bottom-color:var(--navy)}
+nav button .bdg{background:var(--red);color:#fff;border-radius:9px;font-size:11px;padding:1px 6px;margin-left:4px}
+main{max-width:1000px;margin:0 auto;padding:14px 12px 90px}
+.searchwrap{position:sticky;top:96px;z-index:30;background:var(--bg);padding:6px 0 8px}
+#q{width:100%;padding:12px 14px;font-size:16px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+#q:focus{outline:2px solid var(--blue)}
+.chips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.chip{background:#fff;border:1.5px solid var(--line);color:var(--mut);padding:5px 12px;border-radius:16px;font-size:13px;font-weight:600}
+.chip.act{background:var(--navy);color:#fff;border-color:var(--navy)}
+.stats{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+.stat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:13px;color:var(--mut)}
+.stat b{display:block;font-size:19px;color:var(--ink)}
+.stat.r b{color:var(--red)}.stat.a b{color:var(--amb)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.card:hover{border-color:var(--blue)}
+.card .l{flex:1;min-width:0}
+.card .sku{font-size:12px;color:var(--mut);font-weight:700}
+.card .nm{font-weight:600;font-size:15px}
+.card .meta{font-size:12.5px;color:var(--mut);margin-top:2px}
+.card .oh{text-align:right;min-width:74px}
+.card .oh b{font-size:18px}
+.card .oh span{display:block;font-size:11.5px;color:var(--mut)}
+.pill{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap}
+.p-ORDER{background:var(--redbg);color:var(--red)}
+.p-WATCH{background:var(--ambbg);color:var(--amb)}
+.p-OK{background:var(--grnbg);color:var(--grn)}
+.p-New{background:var(--ambbg);color:var(--amb)}.p-Reviewed{background:#E7ECF5;color:var(--blue)}
+.p-Ordered{background:#E3EDFF;color:var(--blue)}.p-Received,.p-Delivered{background:var(--grnbg);color:var(--grn)}
+.p-Canceled{background:#eee;color:#888}
+.empty{color:var(--mut);text-align:center;padding:38px 12px;line-height:1.7}
+.modal{position:fixed;inset:0;background:rgba(15,25,50,.45);display:none;align-items:flex-end;justify-content:center;z-index:100}
+.modal.open{display:flex}
+.sheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;padding:18px 18px 26px}
+@media(min-width:700px){.modal{align-items:center}.sheet{border-radius:16px}}
+.sheet h2{font-size:17px;color:var(--navy);margin-bottom:2px}
+.sheet .sub{color:var(--mut);font-size:13px;margin-bottom:12px}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;margin:10px 0 14px}
+.tbtn{padding:12px 6px;background:#F0F3F9;color:var(--navy);font-weight:600;font-size:13.5px;border:2px solid transparent;border-radius:10px}
+.tbtn.act{border-color:var(--navy);background:#fff}
+.qtyrow{display:flex;align-items:center;gap:10px;margin:10px 0 14px}
+.qtyrow button{width:52px;height:52px;font-size:26px;background:#F0F3F9;color:var(--navy);border-radius:12px;font-weight:700}
+#qty{width:90px;height:52px;text-align:center;font-size:24px;font-weight:700;border:1.5px solid var(--line);border-radius:12px}
+.frow{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.frow>div{flex:1;min-width:130px}
+label{font-size:12px;font-weight:700;color:var(--mut);display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px}
+input[type=text],input[type=date],input[type=number],select{width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;font-size:15px;font-family:inherit;background:#fff}
+.saverow{display:flex;gap:10px;margin-top:14px}
+.saverow .btn{flex:1;padding:14px;font-size:16px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;display:none;z-index:200;max-width:92vw;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;font-size:13.5px}
+th{background:var(--navy);color:#fff;text-align:left;padding:8px 10px;font-size:12px}
+td{padding:8px 10px;border-top:1px solid var(--line)}
+.banner{background:var(--ambbg);border:1px solid #eedaa9;color:#7a5a12;padding:10px 14px;border-radius:10px;margin-bottom:12px;font-size:13.5px;line-height:1.5}
+.help{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px;line-height:1.65;font-size:14.5px}
+.help h3{color:var(--navy);margin:14px 0 4px;font-size:15px}
+.help h3:first-child{margin-top:0}
+.fab{position:fixed;bottom:22px;right:20px;width:58px;height:58px;border-radius:50%;background:var(--navy);color:#fff;font-size:28px;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:60;display:none}
+code{background:#eef1f6;border-radius:4px;padding:1px 5px;font-size:13px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Inventory Portal</h1>
+  <span id="connState"><span class="dot" id="connDot"></span><span id="connTxt">Signed out</span></span>
+  <span class="spacer"></span>
+  <button class="btn ghost" id="btnRefresh" style="display:none">↻ Refresh</button>
+  <button class="btn ghost" id="btnAuth">Sign in</button>
+</header>
+<nav id="tabs">
+  <button data-t="items" class="act">Items</button>
+  <button data-t="reorder">Reorder <span class="bdg" id="bdgOrder" style="display:none"></span></button>
+  <button data-t="requests">Requests</button>
+  <button data-t="activity">Activity</button>
+  <button data-t="help">Help</button>
+</nav>
+<main>
+  <section id="tab-items">
+    <div class="searchwrap">
+      <input id="q" type="search" placeholder="Search SKU, name, category, location, vendor…" autocomplete="off">
+      <div class="chips" id="statusChips">
+        <button class="chip act" data-s="">All</button>
+        <button class="chip" data-s="ORDER">Order</button>
+        <button class="chip" data-s="WATCH">Watch</button>
+        <button class="chip" data-s="OK">OK</button>
+        <select id="catSel" class="chip" style="max-width:180px"><option value="">All categories</option></select>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div id="itemList"><div class="empty" id="welcome">Sign in with your Microsoft 365 account to load inventory.<br><br><button class="btn" onclick="signIn()">Sign in</button></div></div>
+  </section>
+  <section id="tab-reorder" style="display:none">
+    <div class="stats" id="roStats"></div>
+    <div style="margin-bottom:10px"><button class="btn sec" id="btnCopyOrder">Copy order list (by vendor)</button></div>
+    <div id="roList"></div>
+  </section>
+  <section id="tab-requests" style="display:none">
+    <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center">
+      <button class="btn" id="btnNewReq">＋ New request</button>
+      <label style="display:flex;align-items:center;gap:6px;margin:0;text-transform:none;font-size:13px;font-weight:600"><input type="checkbox" id="showClosed" style="width:auto"> show closed</label>
+    </div>
+    <div id="reqList"></div>
+  </section>
+  <section id="tab-activity" style="display:none">
+    <div id="pendWrap"></div>
+    <h3 style="color:var(--navy);margin:6px 0 8px">Recent transactions</h3>
+    <div id="actList"></div>
+  </section>
+  <section id="tab-help" style="display:none">
+    <div class="help">
+      <h3>What this page does</h3>
+      This portal reads and writes <b>Inventory_Control_Workbook.xlsx directly in SharePoint</b> through Microsoft's cloud API — the same co-authoring service Excel Online uses. Any number of people can log movements at the same time, from anywhere, with no sync conflicts or duplicate copies. The workbook stays the system of record; entries appear in it within seconds.
+      <h3>Daily use</h3>
+      Search → tap the item → tap what happened (<b>Used, Received, Shipped…</b>) → qty → <b>Save</b>. Initials are remembered on this device. Use <b>＋ New request</b> for non-stock needs.
+      <h3>Sign-in</h3>
+      Use your normal work Microsoft account. Access follows SharePoint permissions — if you can open the workbook, you can use the portal. IT setup (one time, by admin) is described in Portal_Cloud_Setup_Guide.docx.
+      <h3>If a save fails</h3>
+      Lost signal or an expired session queues the entry locally — see the Activity tab for a <b>Retry</b> button. Nothing is lost.
+      <h3>Notes</h3>
+      Data refreshes on every save, on ↻ Refresh, and when you return to the tab. On-hand, status, and reorder quantities come from the workbook's own formulas, so this page and Excel always agree.
+    </div>
+  </section>
+</main>
+<button class="fab" id="fab" title="Log a movement">＋</button>
+
+<div class="modal" id="mTxn"><div class="sheet">
+  <h2 id="txTitle">Log movement</h2><div class="sub" id="txSub"></div>
+  <div id="txPicker" style="display:none;margin-bottom:10px">
+    <label>Item</label><input type="text" id="txSearch" placeholder="Type to find SKU…" autocomplete="off">
+    <div id="txSearchRes"></div>
+  </div>
+  <label>What happened?</label>
+  <div class="tgrid" id="tgrid"></div>
+  <label>Quantity</label>
+  <div class="qtyrow">
+    <button onclick="bumpQty(-1)">−</button>
+    <input type="number" id="qty" value="1">
+    <button onclick="bumpQty(1)">＋</button>
+    <button onclick="setQty(5)" style="width:auto;padding:0 14px;font-size:15px">5</button>
+    <button onclick="setQty(10)" style="width:auto;padding:0 14px;font-size:15px">10</button>
+  </div>
+  <div class="frow">
+    <div><label>Project / job # <span style="text-transform:none;font-weight:400">(optional)</span></label><input type="text" id="txProj" placeholder="J-2218 / SVC-121"></div>
+    <div><label>Your initials</label><input type="text" id="txBy" maxlength="6"></div>
+  </div>
+  <div><label>Notes (optional)</label><input type="text" id="txNotes" placeholder="PO #, serial #, reason…"></div>
+  <div class="saverow">
+    <button class="btn sec" onclick="closeModals()">Cancel</button>
+    <button class="btn" id="txSave" onclick="saveTxn()">Save</button>
+  </div>
+</div></div>
+
+<div class="modal" id="mReq"><div class="sheet">
+  <h2>New request</h2><div class="sub">Ask purchasing to order something — stocked or not.</div>
+  <div class="frow">
+    <div><label>Stocked SKU (optional)</label><input type="text" id="rqSku" placeholder="Type to search…" autocomplete="off"><div id="rqSkuRes"></div></div>
+    <div><label>Qty</label><input type="number" id="rqQty" value="1"></div>
+  </div>
+  <div style="margin-bottom:10px"><label>Item / description</label><input type="text" id="rqDesc" placeholder="What do you need?"></div>
+  <div class="frow">
+    <div><label>Needed by</label><input type="date" id="rqNeed"></div>
+    <div><label>Priority</label><select id="rqPrio"><option>Normal</option><option>Urgent</option><option>High</option><option>Low</option></select></div>
+  </div>
+  <div class="frow">
+    <div><label>Project / job #</label><input type="text" id="rqProj"></div>
+    <div><label>Your initials</label><input type="text" id="rqBy" maxlength="6"></div>
+  </div>
+  <div style="margin-bottom:4px"><label>Notes</label><input type="text" id="rqNotes"></div>
+  <div class="saverow">
+    <button class="btn sec" onclick="closeModals()">Cancel</button>
+    <button class="btn" onclick="saveReq()">Submit request</button>
+  </div>
+</div></div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   CONFIG — fill these three values in (see Portal_Cloud_Setup_Guide.docx)
+   ===================================================================== */
+const CONFIG = {
+  tenantId:    "YOUR-TENANT-ID-HERE",        // Entra ID → Overview → Directory (tenant) ID
+  clientId:    "YOUR-CLIENT-ID-HERE",        // App registration → Application (client) ID
+  workbookUrl: "https://YOURCOMPANY.sharepoint.com/sites/YOURSITE/Shared%20Documents/Inventory_Control_Workbook.xlsx"
+};
+/* ===================================================================== */
+
+const SCOPES=["Files.ReadWrite.All"];
+let pca=null, account=null, driveId=null, itemId=null;
+let items=[], txns=[], reqs=[], signs={}, txnTypes=[];
+let curSKU=null, curType=null, filtStatus='', filtCat='', queue=[];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store={get:(k,d)=>{try{const v=localStorage.getItem('invpc_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem('invpc_'+k,JSON.stringify(v))}catch(e){}}};
+queue=store.get('queue',[]);
+
+/* ================= auth ================= */
+function msalReady(){return typeof msal!=='undefined'}
+async function initAuth(){
+  if(!msalReady()){setTimeout(initAuth,400);return}
+  if(CONFIG.clientId.startsWith('YOUR-')){setConn('Not configured — see Help','');$('welcome').innerHTML='This page needs one-time IT setup.<br>Open <b>Portal_Cloud_Setup_Guide.docx</b> and fill in the CONFIG block at the top of this file.';return}
+  pca=new msal.PublicClientApplication({
+    auth:{clientId:CONFIG.clientId,authority:`https://login.microsoftonline.com/${CONFIG.tenantId}`,redirectUri:window.location.origin+window.location.pathname},
+    cache:{cacheLocation:'localStorage'}
+  });
+  if(pca.initialize)await pca.initialize();
+  const accts=pca.getAllAccounts();
+  if(accts.length){account=accts[0];await afterSignIn();}
+}
+async function signIn(){
+  if(!pca){toast('Auth not ready yet — try again in a second.');return}
+  try{
+    const res=await pca.loginPopup({scopes:SCOPES});
+    account=res.account;await afterSignIn();
+  }catch(e){toast('Sign-in failed: '+(e.errorMessage||e.message))}
+}
+async function getToken(){
+  try{return (await pca.acquireTokenSilent({scopes:SCOPES,account})).accessToken}
+  catch(e){const r=await pca.acquireTokenPopup({scopes:SCOPES,account});return r.accessToken}
+}
+async function afterSignIn(){
+  $('btnAuth').textContent=(account.name||account.username).split(' ')[0]+' · Sign out';
+  setConn('Connecting…','busy');
+  try{
+    await resolveFile();
+    await loadData();
+    $('btnRefresh').style.display='';$('fab').style.display='block';
+    if(queue.length)toast(queue.length+' queued entries waiting — see Activity tab to retry.');
+  }catch(e){setConn('Error','');toast('Could not open workbook: '+e.message)}
+}
+function signOut(){pca.logoutPopup({account}).catch(()=>{});account=null;location.reload()}
+$('btnAuth').onclick=()=>account?signOut():signIn();
+
+/* ================= graph ================= */
+async function g(method,url,body){
+  const tok=await getToken();
+  const res=await fetch('https://graph.microsoft.com/v1.0'+url,{
+    method,headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},
+    body:body?JSON.stringify(body):undefined});
+  if(!res.ok){let msg=res.status+'';try{msg=(await res.json()).error.message}catch(e){}throw new Error(msg)}
+  return res.status===204?null:res.json();
+}
+async function resolveFile(){
+  const enc='u!'+btoa(CONFIG.workbookUrl).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const d=await g('GET',`/shares/${enc}/driveItem?$select=id,name,parentReference`);
+  itemId=d.id;driveId=d.parentReference.driveId;
+}
+const WB=()=>`/drives/${driveId}/items/${itemId}/workbook`;
+async function loadData(){
+  setConn('Loading…','busy');
+  const tok=await getToken();
+  const res=await fetch('https://graph.microsoft.com/v1.0/$batch',{method:'POST',
+    headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},
+    body:JSON.stringify({requests:[
+      {id:'1',method:'GET',url:`${WB()}/worksheets('Item Master')/usedRange?$select=values`},
+      {id:'2',method:'GET',url:`${WB()}/tables('TxnLog')/dataBodyRange?$select=values`},
+      {id:'3',method:'GET',url:`${WB()}/tables('ReqLog')/dataBodyRange?$select=values`},
+      {id:'4',method:'GET',url:`${WB()}/worksheets('Lists')/range(address='D2:E8')?$select=values`}
+    ]})});
+  if(!res.ok)throw new Error('batch load failed ('+res.status+')');
+  const out=(await res.json()).responses;
+  const get=id=>{const r=out.find(x=>x.id===id);if(r.status>=400)throw new Error('load '+id+': '+(r.body&&r.body.error?r.body.error.message:r.status));return r.body.values};
+  const imv=get('1'),txv=get('2'),rqv=get('3'),lsv=get('4');
+  signs={};txnTypes=[];
+  for(const r of lsv){if(r[0]!==''&&r[0]!=null){signs[r[0]]=Number(r[1])||0;txnTypes.push(r[0]);}}
+  items=[];
+  for(const r of imv.slice(1)){
+    if(!r[0])continue;
+    items.push({sku:r[0],name:r[1],cat:r[2],sub:r[3],loc:r[4],uom:r[5],crit:r[6],par:+r[7]||0,rp:+r[8]||0,lead:+r[9]||0,vendor:r[10],cost:+r[11]||0,
+      oh:+r[13]||0,status:r[14]||'OK',sq:+r[15]||0,
+      ix:(r[0]+' '+r[1]+' '+r[2]+' '+r[3]+' '+r[4]+' '+r[10]).toLowerCase()});
+  }
+  txns=(txv||[]).filter(r=>r[1]!==''||r[3]!=='').map(r=>({date:r[0],sku:r[1],name:r[2],type:r[3],qty:+r[4]||0,signed:+r[5]||0,proj:r[6],by:r[7],notes:r[8]}));
+  reqs=(rqv||[]).filter(r=>r[1]!==''||r[3]!=='').map(r=>({date:r[0],by:r[1],sku:r[2],desc:r[3],qty:r[4],need:r[5],proj:r[6],prio:r[7],status:r[8]||'New',po:r[9],notes:r[10]}));
+  setConn('Live · '+(account.name||account.username),'on');
+  renderAll();
+}
+
+/* ================= writes ================= */
+function dateSerial(d){if(typeof d==='string'&&d){const p=d.split('-');return Math.round(Date.UTC(+p[0],+p[1]-1,+p[2])/86400000)+25569}
+  return Math.round(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000)+25569}
+async function addTxnRow(tx){
+  const it=items.find(i=>i.sku===tx.sku);
+  const signed=tx.qty*(signs[tx.type]??0);
+  await g('POST',`${WB()}/tables('TxnLog')/rows/add`,{values:[[dateSerial(new Date()),tx.sku,it?it.name:'',tx.type,tx.qty,signed,tx.proj||'',tx.by,tx.notes||'']]});
+}
+async function addReqRow(rq){
+  const it=items.find(i=>i.sku===rq.sku);
+  await g('POST',`${WB()}/tables('ReqLog')/rows/add`,{values:[[dateSerial(new Date()),rq.by,rq.sku||'',rq.desc||(it?it.name:''),rq.qty,rq.need?dateSerial(rq.need):'',rq.proj||'',rq.prio,'New','',rq.notes||'']]});
+}
+async function commit(txList,rqList){
+  setConn('Saving…','busy');
+  try{
+    for(const t of txList)await addTxnRow(t);
+    for(const r of rqList)await addReqRow(r);
+    await loadData();
+    toast('✓ Saved to SharePoint — '+(txList[0]?`${shortType(txList[0].type)} ${txList[0].qty} × ${txList[0].sku}`:'request submitted'));
+  }catch(e){
+    for(const t of txList)queue.push({kind:'tx',...t});
+    for(const r of rqList)queue.push({kind:'rq',...r});
+    store.set('queue',queue);renderActivity();
+    setConn('Live · '+(account?(account.name||''):''),'on');
+    toast('Save failed ('+e.message+') — entry queued. Retry from Activity tab.');
+  }
+}
+async function retryQueue(){
+  const q=queue.slice();queue=[];store.set('queue',queue);
+  await commit(q.filter(x=>x.kind==='tx'),q.filter(x=>x.kind==='rq'));
+}
+
+/* ================= render (same UI as local portal) ================= */
+function renderAll(){renderItems();renderReorder();renderReqs();renderActivity();renderCats();
+  const n=items.filter(i=>i.status==='ORDER').length;
+  $('bdgOrder').style.display=n?'':'none';$('bdgOrder').textContent=n;}
+function renderCats(){
+  const cats=[...new Set(items.map(i=>i.cat))].filter(Boolean).sort();
+  $('catSel').innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option${c===filtCat?' selected':''}>${esc(c)}</option>`).join('');
+}
+function match(it,q){if(!q)return true;return q.toLowerCase().split(/\s+/).every(t=>it.ix.includes(t));}
+function renderItems(){
+  const q=$('q').value.trim();
+  let list=items.filter(i=>match(i,q)&&(!filtStatus||i.status===filtStatus)&&(!filtCat||i.cat===filtCat));
+  const rank={ORDER:0,WATCH:1,OK:2};
+  list.sort((a,b)=>q?(a.ix.indexOf(q.toLowerCase())-b.ix.indexOf(q.toLowerCase())):(rank[a.status]-rank[b.status]||a.sku.localeCompare(b.sku)));
+  const o=items.filter(i=>i.status==='ORDER').length,w=items.filter(i=>i.status==='WATCH').length;
+  const val=items.reduce((s,i)=>s+i.oh*i.cost,0);
+  $('stats').innerHTML=items.length?`<div class="stat r"><b>${o}</b>to order</div><div class="stat a"><b>${w}</b>below par</div><div class="stat"><b>${items.length}</b>SKUs</div><div class="stat"><b>$${Math.round(val).toLocaleString()}</b>on-hand value</div>`:'';
+  $('itemList').innerHTML=list.length?list.map(i=>`
+    <div class="card" onclick="openTxn('${esc(i.sku)}')">
+      <div class="l"><span class="sku">${esc(i.sku)}</span> <span class="pill p-${i.status}">${i.status==='ORDER'?'ORDER'+(i.crit==='Y'?' ⚠':''):i.status}</span>
+        <div class="nm">${esc(i.name)}</div>
+        <div class="meta">${esc(i.cat)} · ${esc(i.loc)} · ${esc(i.vendor)}</div></div>
+      <div class="oh"><b>${i.oh}</b><span>${esc(i.uom)} / par ${i.par}</span></div>
+    </div>`).join(''):(items.length?'<div class="empty">No items match.</div>':$('itemList').innerHTML);
+}
+function renderReorder(){
+  const list=items.filter(i=>i.status==='ORDER');
+  $('roStats').innerHTML=`<div class="stat r"><b>${list.length}</b>items at/below reorder point</div>`;
+  $('roList').innerHTML=list.length?`<table><tr><th>SKU</th><th>Item</th><th>On hand</th><th>Order qty</th><th>Vendor</th><th>Lead</th></tr>`+
+    list.map(i=>`<tr><td><b>${esc(i.sku)}</b>${i.crit==='Y'?' ⚠':''}</td><td>${esc(i.name)}</td><td>${i.oh} ${esc(i.uom)}</td><td><b>${i.sq}</b></td><td>${esc(i.vendor)}</td><td>${i.lead}d</td></tr>`).join('')+'</table>'
+    :'<div class="empty">Nothing to reorder. 🎉</div>';
+}
+function fmtDate(v){if(v==null||v==='')return'';if(typeof v==='number')return new Date(Math.round((v-25569)*86400000)).toLocaleDateString('en-US',{timeZone:'UTC',month:'numeric',day:'numeric',year:'2-digit'});return esc(v)}
+function renderReqs(){
+  const showClosed=$('showClosed').checked;
+  const list=reqs.filter(r=>showClosed||!['Delivered','Canceled'].includes(r.status));
+  $('reqList').innerHTML=list.length?list.slice().reverse().map(r=>`
+    <div class="card" style="cursor:default">
+      <div class="l"><span class="pill p-${esc(r.status)}">${esc(r.status)}</span> ${r.prio==='Urgent'?'<span class="pill p-ORDER">URGENT</span>':''}
+        <div class="nm">${esc(r.desc||r.sku)} ×${esc(r.qty)}</div>
+        <div class="meta">${fmtDate(r.date)} · by ${esc(r.by)}${r.proj?' · '+esc(r.proj):''}${r.need?' · need by '+fmtDate(r.need):''}${r.po?' · '+esc(r.po):''}</div></div>
+    </div>`).join(''):'<div class="empty">No open requests.</div>';
+}
+function renderActivity(){
+  $('pendWrap').innerHTML=queue.length?`<div class="banner"><b>${queue.length} queued ${queue.length>1?'entries':'entry'}</b> (last save failed).
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn" onclick="retryQueue()">Retry now</button>
+    <button class="btn warn" onclick="if(confirm('Discard queued entries?')){queue=[];store.set('queue',queue);renderActivity();}">Discard</button></div></div>`:'';
+  const list=txns.slice(-50).reverse();
+  $('actList').innerHTML=list.length?list.map(t=>{const s=t.signed||((signs[t.type]??0)*t.qty);
+    return`<div class="card" style="cursor:default"><div class="l"><span class="sku">${fmtDate(t.date)} · ${esc(t.by)}</span>
+      <div class="nm">${esc(t.type)} — ${esc(t.name||t.sku)}</div>
+      <div class="meta">${esc(t.sku)}${t.proj?' · '+esc(t.proj):''}${t.notes?' · '+esc(t.notes):''}</div></div>
+      <div class="oh"><b style="color:${s<0?'var(--red)':'var(--grn)'}">${s<0?'−':'+'}${Math.abs(t.qty)}</b></div></div>`}).join('')
+    :'<div class="empty">No transactions yet.</div>';
+}
+
+/* ================= modals ================= */
+function openTxn(sku){
+  if(!items.length){toast('Sign in first.');return}
+  curSKU=sku;curType=null;
+  const it=items.find(i=>i.sku===sku);
+  $('txTitle').textContent=it?it.name:'Log movement';
+  $('txSub').textContent=it?`${it.sku} · ${it.loc} · on hand ${it.oh} ${it.uom} (par ${it.par} / reorder at ${it.rp})`:'';
+  $('txPicker').style.display=sku?'none':'block';
+  $('tgrid').innerHTML=txnTypes.map(t=>`<button class="tbtn" data-t="${esc(t)}" onclick="pickType(this)">${esc(shortType(t))}</button>`).join('');
+  $('qty').value=1;$('txProj').value='';$('txNotes').value='';
+  $('txBy').value=store.get('initials','');
+  $('mTxn').classList.add('open');
+}
+function shortType(t){return String(t).replace('Count Adjustment (+/-)','Adjust (±)').replace('Issued / Used','Used').replace(' / ','/')}
+function pickType(el){curType=el.dataset.t;[...$('tgrid').children].forEach(b=>b.classList.toggle('act',b===el));}
+function bumpQty(d){$('qty').value=(parseInt($('qty').value)||0)+d}
+function setQty(v){$('qty').value=v}
+function closeModals(){document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'))}
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModals()}));
+$('fab').onclick=()=>openTxn(null);
+$('txSearch').addEventListener('input',e=>{
+  const q=e.target.value.trim();
+  $('txSearchRes').innerHTML=q?items.filter(i=>match(i,q)).slice(0,6).map(i=>`<div class="card" onclick="openTxn('${esc(i.sku)}')"><div class="l"><span class="sku">${esc(i.sku)}</span><div class="nm">${esc(i.name)}</div></div><div class="oh"><b>${i.oh}</b></div></div>`).join(''):'';
+});
+async function saveTxn(){
+  if(!curSKU){toast('Pick an item first.');return}
+  if(!curType){toast('Tap what happened (Used, Received…).');return}
+  const qty=parseFloat($('qty').value);
+  if(!qty||(qty<0&&!curType.startsWith('Count'))){toast('Enter a valid quantity.');return}
+  const by=$('txBy').value.trim().toUpperCase();
+  if(!by){toast('Add your initials.');return}
+  store.set('initials',by);
+  const tx={sku:curSKU,type:curType,qty:qty,proj:$('txProj').value.trim(),by:by,notes:$('txNotes').value.trim()};
+  closeModals();
+  await commit([tx],[]);
+}
+$('btnNewReq').onclick=()=>{
+  if(!items.length){toast('Sign in first.');return}
+  $('rqSku').value='';$('rqDesc').value='';$('rqQty').value=1;$('rqNeed').value='';$('rqProj').value='';$('rqNotes').value='';
+  $('rqPrio').value='Normal';$('rqBy').value=store.get('initials','');$('rqSkuRes').innerHTML='';
+  $('mReq').classList.add('open');
+};
+$('rqSku').addEventListener('input',e=>{
+  const q=e.target.value.trim();
+  $('rqSkuRes').innerHTML=q&&!items.find(i=>i.sku===q)?items.filter(i=>match(i,q)).slice(0,5).map(i=>`<div class="card" onclick="$('rqSku').value='${esc(i.sku)}';$('rqDesc').value='${esc(i.name)}';$('rqSkuRes').innerHTML=''"><div class="l"><span class="sku">${esc(i.sku)}</span><div class="nm">${esc(i.name)}</div></div></div>`).join(''):'';
+});
+async function saveReq(){
+  const desc=$('rqDesc').value.trim(),sku=$('rqSku').value.trim();
+  if(!desc&&!sku){toast('Describe what you need.');return}
+  const by=$('rqBy').value.trim().toUpperCase();
+  if(!by){toast('Add your initials.');return}
+  store.set('initials',by);
+  const rq={by:by,sku:sku,desc:desc,qty:parseFloat($('rqQty').value)||1,need:$('rqNeed').value,proj:$('rqProj').value.trim(),prio:$('rqPrio').value,notes:$('rqNotes').value.trim()};
+  closeModals();
+  await commit([],[rq]);
+}
+
+/* ================= misc ================= */
+$('btnCopyOrder').onclick=()=>{
+  const list=items.filter(i=>i.status==='ORDER');
+  const byV={};for(const i of list)(byV[i.vendor]=byV[i.vendor]||[]).push(i);
+  let out='ORDER LIST — '+new Date().toLocaleDateString()+'\n';
+  for(const v of Object.keys(byV).sort()){out+='\n'+v+'\n';for(const i of byV[v])out+=`  ${i.sku}  ${i.name} — order ${i.sq} ${i.uom} (on hand ${i.oh}, par ${i.par})\n`;}
+  navigator.clipboard.writeText(out).then(()=>toast('Order list copied.'),()=>toast('Copy failed — select manually.'));
+};
+function switchTab(t){
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('act',b.dataset.t===t));
+  document.querySelectorAll('main>section').forEach(s=>s.style.display=s.id==='tab-'+t?'':'none');
+}
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)switchTab(b.dataset.t)});
+$('q').addEventListener('input',renderItems);
+$('statusChips').addEventListener('click',e=>{const c=e.target.closest('.chip');if(!c||c.tagName==='SELECT')return;
+  document.querySelectorAll('#statusChips .chip').forEach(x=>{if(x.tagName!=='SELECT')x.classList.remove('act')});
+  c.classList.add('act');filtStatus=c.dataset.s;renderItems();});
+$('catSel').addEventListener('change',e=>{filtCat=e.target.value;renderItems()});
+$('showClosed').addEventListener('change',renderReqs);
+$('btnRefresh').onclick=()=>loadData().then(()=>toast('Refreshed.')).catch(e=>toast('Refresh failed: '+e.message));
+let lastFocus=0;
+window.addEventListener('focus',()=>{if(account&&driveId&&Date.now()-lastFocus>30000){lastFocus=Date.now();loadData().catch(()=>{})}});
+document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('q').focus()}if(e.key==='Escape')closeModals()});
+function setConn(txt,cls){$('connTxt').textContent=txt;$('connDot').className='dot '+cls}
+let toastTimer;function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.style.display='none',4800)}
+initAuth();
+</script>
+</body>
+</html>
